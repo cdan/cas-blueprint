@@ -1,0 +1,166 @@
+formatVersion: 1
+inputs:
+  count:
+    type: integer
+    default: 2
+    maximum: 5
+    minimum: 2
+    title: WebTir Cluster Size
+    description: WebTir (Number of nodes)
+resources:
+  Public-Net:
+    type: Cloud.Network
+    metadata:
+      layoutPosition:
+        - 0
+        - 0
+    properties:
+      name: public-net
+      networkType: existing
+  WebTr-GCP:
+    type: Cloud.GCP.Machine
+    dependsOn:
+      - RedisCluster
+    metadata:
+      layoutPosition:
+        - 2
+        - 2
+    properties:
+      constraints:
+        - tag: gcp
+      image: ubuntu
+      flavor: small
+      count: '${input.count}'
+      networks:
+        - name: '${resource["NSX-T"].name}'
+  AWS.Route53:
+    type: Cloud.Service.AWS.Route53.Record
+    dependsOn:
+      - LB-Multi-Cloud
+    metadata:
+      layoutPosition:
+        - 3
+        - 0
+    properties:
+      name: AWS.Route53
+      network: '${resource["Public-Net"].name}'
+      type: ''
+      region: ''
+      account: ''
+      zone_id: ''
+  LB-Multi-Cloud:
+    type: Cloud.LoadBalancer
+    metadata:
+      layoutPosition:
+        - 3
+        - 1
+    properties:
+      name: myapp-lb
+      network: '${resource["Public-Net"].name}'
+      instances:
+        - '${resource["WebTr-VMC"].id}'
+        - '${resource["WebTr-AWS"].id}'
+        - '${resource["WebTr-Azure"].id}'
+        - '${resource["WebTr-GCP"].id}'
+      routes:
+        - protocol: HTTP
+          port: '80'
+          instanceProtocol: HTTP
+          instancePort: '80'
+          healthCheckConfiguration:
+            protocol: HTTP
+            port: '80'
+            urlPath: /mywordpresssite/wp-admin/install.php
+            intervalSeconds: 6
+            timeoutSeconds: 5
+            unhealthyThreshold: 2
+            healthyThreshold: 2
+      internetFacing: true
+      count: 0
+  WebTr-AWS:
+    type: Cloud.AWS.EC2.Instance
+    dependsOn:
+      - RedisCluster
+    metadata:
+      layoutPosition:
+        - 1
+        - 2
+    properties:
+      constraints:
+        - tag: aws
+      image: ubuntu
+      flavor: small
+      count: '${input.count}'
+      networks:
+        - name: '${resource["NSX-T"].name}'
+  WebTr-Azure:
+    type: Cloud.Azure.Machine
+    dependsOn:
+      - RedisCluster
+    metadata:
+      layoutPosition:
+        - 3
+        - 2
+    properties:
+      constraints:
+        - tag: azure
+      image: ubuntu
+      flavor: small
+      count: '${input.count}'
+      networks:
+        - name: '${resource["NSX-T"].name}'
+  WebTr-VMC:
+    type: Cloud.vSphere.Machine
+    dependsOn:
+      - RedisCluster
+    metadata:
+      layoutPosition:
+        - 4
+        - 2
+    properties:
+      constraints:
+        - tag: vmc
+      image: ubuntu
+      flavor: small
+      count: '${input.count}'
+      networks:
+        - name: '${resource["NSX-T"].name}'
+  RedisCluster:
+    type: Cloud.vSphere.Machine
+    dependsOn:
+      - MySqlCluster
+    metadata:
+      layoutPosition:
+        - 3
+        - 3
+    properties:
+      image: ''
+      flavor: ''
+      count: '${input.count}'
+      constraints:
+        - tag: vSphere
+      networks:
+        - name: '${resource["NSX-T"].name}'
+  MySqlCluster:
+    type: Cloud.vSphere.Machine
+    metadata:
+      layoutPosition:
+        - 3
+        - 4
+    properties:
+      image: ''
+      flavor: ''
+      count: '${input.count}'
+      constraints:
+        - tag: vSphere
+      networks:
+        - name: '${resource["NSX-T"].name}'
+  NSX-T:
+    type: Cloud.Network
+    metadata:
+      layoutPosition:
+        - 5
+        - 0
+    properties:
+      name: NSX-T
+      networkType: existing
